@@ -8,9 +8,9 @@ from src.shared.base import Base
 
 # ⚠️ IMPORT EVERY MODULE'S models.py HERE.
 from src.modules.auth import models as _auth_models          # noqa: F401
-# from src.modules.student import models as _student_models  # noqa: F401
-# from src.modules.operator import models as _operator_models  # noqa: F401
-# from src.modules.admin import models as _admin_models        # noqa: F401
+from src.modules.student import models as _student_models  # noqa: F401
+from src.modules.operator import models as _operator_models  # noqa: F401
+from src.modules.admin import models as _admin_models        # noqa: F401
 
 # --- Your app settings (single source of truth for DB URL) -------------
 from src.shared.config import settings
