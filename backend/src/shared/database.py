@@ -1,26 +1,21 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from src.shared.config import settings
 
-engine = create_engine(
-    settings.database_url,
-    echo=False,
-    pool_pre_ping=True,     # avoids stale connections
+engine = create_async_engine(
+    settings.database_url,   # must be postgresql+asyncpg://
+    pool_pre_ping=True,
 )
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
+async_session_factory = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
     expire_on_commit=False,
+    autoflush=False,
 )
 
-
-def get_db():
-    db = SessionLocal()
-
-    try:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_factory() as db:
         yield db
-    finally:
-        db.close()

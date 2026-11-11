@@ -73,12 +73,12 @@ async def change_my_profile():
     """
     pass
 
-@router.put("/change_password")
+@router.put("/change/password")
 async def change_my_password():
     """Validates the old password before hashing and saving the new one."""
     pass
 
-@router.put("/change_phone")
+@router.put("/change/phone")
 async def change_my_phone():
     """
     Validates the provided change profile OTP against the cache 
@@ -86,7 +86,7 @@ async def change_my_phone():
     """
     pass
 
-@router.put("/change_email")
+@router.put("/change/email")
 async def change_my_email():
     """
     Validates the provided change profile OTP against the cache 
