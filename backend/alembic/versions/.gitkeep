@@ -1,0 +1,4 @@
+mkdir alembic/versions
+type nul > alembic/versions\.gitkeep        :: Windows CMD
+# or: echo. > alembic\versions\.gitkeep
+# or (PowerShell): New-Item alembic/versions/.gitkeep
