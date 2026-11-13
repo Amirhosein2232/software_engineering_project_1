@@ -12,6 +12,7 @@ from src.shared.config import settings
 from src.shared.jwt_toolkit import create_access_token
 from src.shared.redis_client import redis_client
 from src.shared.security import hash_password, verify_password
+from src.modules.auth.validation import UserOut
 
 # ---------------------------------------------------------------------------
 # OTP helpers (internal)
@@ -317,11 +318,21 @@ async def logout_service(
 # Profile
 # ---------------------------------------------------------------------------
 
-async def get_me_service(db: AsyncSession, user_id: int) -> User:
-    user = await repo.get_user_by_id(db, user_id)
-    if user is None:
-        raise HTTPException(404, "User not found")
-    return user
+async def get_me_service(db: AsyncSession, user: User) -> UserOut:
+    role = await repo.get_role_by_id(db, user.role_id)
+    if role is None:
+        raise HTTPException(500, "Server misconfigured: role missing")
+    return UserOut(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        phone_number=user.phone_number,
+        full_name=user.full_name,
+        student_number=user.student_number,
+        role_name=role.name,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
 
 
 async def update_profile_service(
@@ -330,23 +341,30 @@ async def update_profile_service(
     *,
     full_name: str | None = None,
     student_number: str | None = None,
-) -> User:
-    # If changing student_number, check it's not taken by someone else
+) -> UserOut:
     if student_number is not None and student_number != user.student_number:
         existing = await repo.get_user_by_student_number(db, student_number)
         if existing is not None and existing.id != user.id:
             raise HTTPException(409, "Student number already registered")
-
     try:
-        return await repo.update_user_profile(
-            db, user,
-            full_name=full_name,
-            student_number=student_number,
+        updated = await repo.update_user_profile(
+            db, user, full_name=full_name, student_number=student_number
         )
     except IntegrityError:
         await db.rollback()
         raise HTTPException(409, "Student number already registered")
 
+    role = await repo.get_role_by_id(db, updated.role_id)
+    if role is None:
+        raise HTTPException(500, "Server misconfigured: role missing")
+
+    return UserOut(
+        id=updated.id, username=updated.username, email=updated.email,
+        phone_number=updated.phone_number, full_name=updated.full_name,
+        student_number=updated.student_number,
+        role_name=role.name,
+        is_active=updated.is_active, created_at=updated.created_at,
+    )
 # ---------------------------------------------------------------------------
 # Account security
 # ---------------------------------------------------------------------------
