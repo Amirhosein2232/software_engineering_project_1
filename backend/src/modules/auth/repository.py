@@ -28,6 +28,13 @@ async def get_user_by_phone(db: AsyncSession, phone_number: str) -> User | None:
     result = await db.execute(select(User).where(User.phone_number == phone_number))
     return result.scalar_one_or_none()
 
+async def get_user_by_student_number(
+    db: AsyncSession, student_number: str
+) -> User | None:
+    result = await db.execute(
+        select(User).where(User.student_number == student_number)
+    )
+    return result.scalar_one_or_none()
 
 async def create_user(
     db: AsyncSession,
