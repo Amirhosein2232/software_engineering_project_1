@@ -7,6 +7,8 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+import src.shared.models_registry
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,7 +36,7 @@ app.add_middleware(
 )
 
 # Dynamic Submodule Routing Mounts
-app.include_router(auth_router, prefix="/api/auth", tags=["1. Authentication & Security"])
+app.include_router(auth_router, prefix="/api/auth")
 app.include_router(student_router, prefix="/api/student", tags=["2. Student Operations"])
 #app.include_router(operator_router, prefix="/api/operator", tags=["3. Operator Helpdesk"])
 #app.include_router(admin_router, prefix="/api/admin", tags=["4. Global Administration"])

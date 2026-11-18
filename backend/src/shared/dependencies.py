@@ -8,7 +8,11 @@ from src.modules.auth.models import User
 from src.shared.database import get_db
 from src.shared.jwt_toolkit import decode_access_token
 
-security = HTTPBearer(auto_error=False)
+security = HTTPBearer(
+    scheme_name="Access Token",
+    description="Paste the **access_token** (not the refresh token) here. The frontend should send this in the `Authorization: Bearer <token>` header.",
+    auto_error=False,
+)
 
 
 async def get_current_user(

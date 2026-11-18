@@ -28,7 +28,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 REFRESH_COOKIE_NAME = "refresh_token"
-REFRESH_COOKIE_PATH = "/auth/refresh"
+REFRESH_COOKIE_PATH = "/"
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(
@@ -57,7 +57,7 @@ def _user_agent(request: Request) -> str | None:
 # 1. OTP ENGINE (Unified Hub)
 # ==========================================
 
-@router.post("/request_otp/signup/email", response_model=OTPRequestOut)
+@router.post("/request_otp/signup/email", tags=['OTP ENGINE'], response_model=OTPRequestOut)
 async def request_otp_signup_email(
     payload: EmailOTPRequest,
     db: AsyncSession = Depends(get_db),
@@ -68,7 +68,7 @@ async def request_otp_signup_email(
     return OTPRequestOut()
 
 
-@router.post("/request_otp/signup/phone", response_model=OTPRequestOut)
+@router.post("/request_otp/signup/phone", tags=['OTP ENGINE'], response_model=OTPRequestOut)
 async def request_otp_signup_phone(
     payload: PhoneOTPRequest,
     db: AsyncSession = Depends(get_db),
@@ -79,7 +79,7 @@ async def request_otp_signup_phone(
     return OTPRequestOut()
 
 
-@router.post("/request_otp/change/email", response_model=OTPRequestOut)
+@router.post("/request_otp/change/email", tags=['OTP ENGINE'], response_model=OTPRequestOut)
 async def request_otp_change_email(
     payload: EmailOTPRequest,
     user: User = Depends(get_current_user),
@@ -95,7 +95,7 @@ async def request_otp_change_email(
     return OTPRequestOut()
 
 
-@router.post("/request_otp/change/phone", response_model=OTPRequestOut)
+@router.post("/request_otp/change/phone", tags=['OTP ENGINE'], response_model=OTPRequestOut)
 async def request_otp_change_phone(
     payload: PhoneOTPRequest,
     user: User = Depends(get_current_user),
@@ -114,13 +114,21 @@ async def request_otp_change_phone(
 # 2. REGISTRATION PIPELINE
 # ==========================================
 
-@router.post("/sign_up/email", response_model=AccessTokenOut)
+@router.post("/sign_up/email", tags=['REGISTRATION'], response_model=AccessTokenOut)
 async def sign_up_email(
     payload: SignupEmailRequest,
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    **Frontend Flow:**
+    1. Call `POST /auth/request_otp/signup/email` with the user's email.
+    2. The user receives a 6-digit code.
+    3. Submit this form with that code in `otp_code`.
+
+    **Response:** Returns an `access_token`. The refresh token is set as an HttpOnly cookie automatically.
+    """
     access, refresh = await service.signup_by_email_service(
         db,
         username=payload.username,
@@ -136,13 +144,21 @@ async def sign_up_email(
     return AccessTokenOut(access_token=access)
 
 
-@router.post("/sign_up/phone", response_model=AccessTokenOut)
+@router.post("/sign_up/phone", tags=['REGISTRATION'], response_model=AccessTokenOut)
 async def sign_up_phone(
     payload: SignupPhoneRequest,
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    **Frontend Flow:**
+    1. Call `POST /auth/request_otp/signup/phone` with the user's phone number.
+    2. The user receives a 6-digit code.
+    3. Submit this form with that code in `otp_code`.
+
+    **Response:** Returns an `access_token`. The refresh token is set as an HttpOnly cookie automatically.
+    """
     access, refresh = await service.signup_by_phone_service(
         db,
         username=payload.username,
@@ -162,13 +178,18 @@ async def sign_up_phone(
 # 3. SESSION LIFECYCLE
 # ==========================================
 
-@router.post("/login", response_model=AccessTokenOut)
+@router.post("/login", tags=['SESSION LIFECYCLE'], response_model=AccessTokenOut)
 async def login(
     payload: LoginRequest,
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    **Recieves:** User credentials.
+
+    **Response:** Returns an `access_token`. The refresh token is set as an HttpOnly cookie automatically.
+    """
     access, refresh = await service.login_service(
         db,
         username=payload.username,
@@ -180,12 +201,17 @@ async def login(
     return AccessTokenOut(access_token=access)
 
 
-@router.post("/refresh-token", response_model=AccessTokenOut)
+@router.post("/refresh-token", tags=['SESSION LIFECYCLE'], response_model=AccessTokenOut)
 async def refresh_token_endpoint(
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Access tokens are temporary. Once expired, the frontend needs to ask for a new access token.
+
+    **Response:** Returns a new `access_token`. The refresh token is set as an HttpOnly cookie automatically.
+    """
     raw_refresh = request.cookies.get(REFRESH_COOKIE_NAME)
     if raw_refresh is None:
         from fastapi import HTTPException
@@ -201,12 +227,16 @@ async def refresh_token_endpoint(
     return AccessTokenOut(access_token=access)
 
 
-@router.post("/logout", status_code=204)
+@router.post("/logout", tags=['SESSION LIFECYCLE'], status_code=204)
 async def logout(
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Revokes all user refresh tokens.
+    User will be unable to use protected endpoints until they log in again.
+    """
     raw_refresh = request.cookies.get(REFRESH_COOKIE_NAME)
     if raw_refresh is not None:
         await service.logout_service(db, refresh_token=raw_refresh)
@@ -217,20 +247,26 @@ async def logout(
 # 4. PROFILE & ACCOUNT SECURITY
 # ==========================================
 
-@router.get("/me", response_model=UserOut)
+@router.get("/me", tags=['PROFILE'], response_model=UserOut)
 async def get_my_profile(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    View user information.
+    """
     return await service.get_me_service(db, user)
 
 
-@router.patch("/me", response_model=UserOut)
+@router.patch("/me", tags=['PROFILE'], response_model=UserOut)
 async def update_my_profile(
     payload: ProfileUpdateRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Change decorative user information.
+    """
     return await service.update_profile_service(
         db, user,
         full_name=payload.full_name,
@@ -238,12 +274,15 @@ async def update_my_profile(
     )
 
 
-@router.put("/change/password", status_code=204)
+@router.put("/change/password", tags=['PROFILE'], status_code=204)
 async def change_my_password(
     payload: ChangePasswordRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Change user password.
+    """
     await service.change_password_service(
         db, user,
         old_password=payload.old_password,
@@ -252,12 +291,20 @@ async def change_my_password(
     return Response(status_code=204)
 
 
-@router.put("/change/email", response_model=UserOut)
+@router.put("/change/email", tags=['PROFILE'], response_model=UserOut)
 async def change_my_email(
     payload: ChangeEmailRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    **Frontend Flow:**
+    1. Call `POST /auth/request_otp/change/email` with the user's email.
+    2. The user receives a 6-digit code.
+    3. Submit this form with that code in `otp_code`.
+
+    Changes the user's email address
+    """
     updated = await service.change_email_service(
         db, user,
         new_email=payload.new_email,
@@ -267,12 +314,20 @@ async def change_my_email(
     return await service.get_me_service(db, updated)
 
 
-@router.put("/change/phone", response_model=UserOut)
+@router.put("/change/phone", tags=['PROFILE'], response_model=UserOut)
 async def change_my_phone(
     payload: ChangePhoneRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+        **Frontend Flow:**
+        1. Call `POST /auth/request_otp/change/phone` with the user's phone number.
+        2. The user receives a 6-digit code.
+        3. Submit this form with that code in `otp_code`.
+    
+        Changes the user's phone number
+        """
     updated = await service.change_phone_service(
         db, user,
         new_phone=payload.new_phone,

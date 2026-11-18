@@ -13,6 +13,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.shared.base import Base
 
+from sqlalchemy import DateTime
+
 
 class Role(Base):
     __tablename__ = "roles"
@@ -69,7 +71,7 @@ class RefreshToken(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     token_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False) 
     is_revoked: Mapped[bool] = mapped_column(Boolean, server_default="false")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     ip_address: Mapped[str | None] = mapped_column(String(45))
