@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 # ===========================================================================
@@ -13,10 +13,15 @@ _IRAN_PHONE_RE = re.compile(r"^(?:\+98|0)?9\d{9}$")
 
 
 def verify_iranian_phone(value: str) -> str:
-    """Accept 09xxxxxxxxx, 9xxxxxxxxx, or +989xxxxxxxxx."""
     if not _IRAN_PHONE_RE.match(value):
         raise ValueError("Invalid Iranian mobile number")
-    return value
+    # Normalize to +989XXXXXXXXX
+    digits = value.lstrip("+").replace(" ", "")
+    if digits.startswith("98"):
+        return f"+{digits}"
+    if digits.startswith("0"):
+        return f"+98{digits[1:]}"
+    return f"+98{digits}"
 
 
 def verify_password_strength(value: str) -> str:
@@ -110,6 +115,12 @@ class _BaseSignup(BaseModel):
             raise ValueError("Student number must contain only digits")
         return v
 
+    @field_validator("otp_code")
+    @classmethod
+    def _otp_digits(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError("OTP must be exactly 6 digits")
+        return v
 
 class SignupEmailRequest(_BaseSignup):
     email: EmailStr = Field(
@@ -181,6 +192,12 @@ class ProfileUpdateRequest(BaseModel):
             raise ValueError("Student number must contain only digits")
         return v
 
+    @model_validator(mode="after")
+    def _at_least_one(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one field must be provided")
+        return self
+
 
 # ===========================================================================
 # Account security (OTP-protected changes)
@@ -194,8 +211,8 @@ class ChangePasswordRequest(BaseModel):
     )
     new_password: str = Field(
         ...,
-        description="New password. Must differ from the old one. At least 8 characters "
-                    "with a letter and a digit. **All active sessions will be logged out.**",
+        description="The code sent to the **new** email address via "
+                    "`/request_otp/change/email`. Single-use, 2-minute expiry.",
         examples=["NewStrongPass456"],
     )
 
@@ -203,6 +220,12 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def _pw(cls, v: str) -> str:
         return verify_password_strength(v)
+
+    @model_validator(mode="after")
+    def _must_differ(self): 
+        if self.old_password == self.new_password:
+            raise ValueError("New password must differ from old password")
+        return self
 
 
 class ChangeEmailRequest(BaseModel):
@@ -219,6 +242,13 @@ class ChangeEmailRequest(BaseModel):
                     "`/request_otp/change/email`. Single-use, 2-minute expiry.",
         examples=["123456"],
     )
+
+    @field_validator("otp_code")
+    @classmethod
+    def _otp_digits(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError("OTP must be exactly 6 digits")
+        return v
 
 
 class ChangePhoneRequest(BaseModel):
@@ -241,6 +271,14 @@ class ChangePhoneRequest(BaseModel):
     @classmethod
     def _phone(cls, v: str) -> str:
         return verify_iranian_phone(v)
+
+    @field_validator("otp_code")
+    @classmethod
+    def _otp_digits(cls, v: str) -> str:
+        if not v.isdigit():
+            raise ValueError("OTP must be exactly 6 digits")
+        return v
+    
 
 
 # ===========================================================================

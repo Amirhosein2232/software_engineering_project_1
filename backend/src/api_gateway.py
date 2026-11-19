@@ -16,8 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # Import router modules (We will stub these blueprints in Step 2)
 from modules.auth.routes import router as auth_router
 from modules.student.routes import router as student_router
-#from modules.operator.routes import router as operator_router
-#from modules.admin.routes import router as admin_router
+from modules.operator.routes import router as operator_router
+from modules.admin.routes import router as admin_router
 
 # Initialize the central API Hub
 app = FastAPI(
@@ -37,9 +37,9 @@ app.add_middleware(
 
 # Dynamic Submodule Routing Mounts
 app.include_router(auth_router, prefix="/api/auth")
-app.include_router(student_router, prefix="/api/student", tags=["2. Student Operations"])
-#app.include_router(operator_router, prefix="/api/operator", tags=["3. Operator Helpdesk"])
-#app.include_router(admin_router, prefix="/api/admin", tags=["4. Global Administration"])
+app.include_router(student_router, prefix="/api/student")
+app.include_router(operator_router, prefix="/api/operator")
+app.include_router(admin_router, prefix="/api/admin")
 
 if __name__ == "__main__":
 
